@@ -1,3 +1,5 @@
+import { useQuery, useMutation } from "@tanstack/react-query"
+import { apiRequest, queryClient } from "@/lib/queryClient"
 import { StatCard } from "@/components/stat-card"
 import { QuickActions } from "@/components/quick-actions"
 import { UpcomingDeadlines } from "@/components/upcoming-deadlines"
@@ -5,67 +7,83 @@ import { MotivationalQuote } from "@/components/motivational-quote"
 import { GoalCard } from "@/components/goal-card"
 import { HabitItem } from "@/components/habit-item"
 import { Target, CheckSquare, Flame, TrendingUp } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { isUnauthorizedError } from "@/lib/authUtils"
+import { useEffect } from "react"
+import type { Goal, Habit } from "@shared/schema"
+
+interface HabitWithStatus extends Habit {
+  completed: boolean
+}
 
 export default function Dashboard() {
-  // TODO: Remove mock data - replace with actual API calls
-  const mockDeadlines = [
-    {
-      id: '1',
-      title: 'Complete React Course',
-      type: 'goal' as const,
-      date: new Date(2025, 10, 12),
-    },
-    {
-      id: '2',
-      title: 'Submit DSA Assignment',
-      type: 'goal' as const,
-      date: new Date(2025, 10, 15),
-    },
-    {
-      id: '3',
-      title: 'Weekly Review',
-      type: 'routine' as const,
-      date: new Date(2025, 10, 17),
-    },
-  ]
+  const { toast } = useToast()
 
-  const mockGoals = [
-    {
-      id: '1',
-      title: 'Complete React Advanced Course',
-      description: 'Finish all modules of the Meta React advanced certification',
-      category: 'Tech' as const,
-      priority: 'high' as const,
-      progress: 65,
-      deadline: new Date(2025, 11, 15),
-    },
-    {
-      id: '2',
-      title: 'Solve 50 LeetCode Problems',
-      description: 'Practice DSA for placement preparation',
-      category: 'Skills' as const,
-      priority: 'high' as const,
-      progress: 42,
-      deadline: new Date(2025, 11, 30),
-    },
-  ]
+  // Fetch data from API
+  const { data: goals = [], isLoading: goalsLoading } = useQuery<Goal[]>({
+    queryKey: ['/api/goals'],
+  })
 
-  const mockHabits = [
-    {
-      id: '1',
-      name: 'Code for 1 hour',
-      streak: 15,
-      completed: true,
-      frequency: 'daily' as const,
+  const { data: habits = [], isLoading: habitsLoading } = useQuery<HabitWithStatus[]>({
+    queryKey: ['/api/habits'],
+  })
+
+  const { data: analytics } = useQuery<{
+    goals: { total: number; active: number; completed: number; completionRate: number }
+    habits: { total: number; completedToday: number; longestStreak: number }
+    journal: { totalEntries: number }
+  }>({
+    queryKey: ['/api/analytics'],
+  })
+
+  // Get active goals and habits
+  const activeGoals = goals.filter(g => g.status === 'active').slice(0, 2)
+  const todayHabits = habits.slice(0, 2)
+
+  // Create deadlines from goals
+  const deadlines = activeGoals.map(goal => ({
+    id: goal.id,
+    title: goal.title,
+    type: 'goal' as const,
+    date: new Date(goal.deadline),
+  })).slice(0, 3)
+
+  // Handle habit check-in
+  const habitCheckInMutation = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      await apiRequest(`/api/habits/${id}/check-in`, "POST", {})
     },
-    {
-      id: '2',
-      name: 'Solve 2 DSA problems',
-      streak: 7,
-      completed: false,
-      frequency: 'daily' as const,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/habits'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/analytics'] })
     },
-  ]
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Error",
+        description: error.message || "Failed to check in habit",
+        variant: "destructive",
+      })
+    },
+  })
+
+  if (goalsLoading || habitsLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -79,26 +97,23 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           title="Active Goals" 
-          value={12} 
+          value={analytics?.goals?.active || 0} 
           icon={Target}
-          trend={{ value: 20, positive: true }}
         />
         <StatCard 
           title="Habits Tracked" 
-          value={8} 
+          value={analytics?.habits?.total || 0} 
           icon={CheckSquare}
-          trend={{ value: 14, positive: true }}
         />
         <StatCard 
-          title="Current Streak" 
-          value="15 days" 
+          title="Longest Streak" 
+          value={`${analytics?.habits?.longestStreak || 0} days`}
           icon={Flame}
         />
         <StatCard 
           title="Completion Rate" 
-          value="78%" 
+          value={`${analytics?.goals?.completionRate || 0}%`}
           icon={TrendingUp}
-          trend={{ value: 12, positive: true }}
         />
       </div>
 
@@ -108,33 +123,59 @@ export default function Dashboard() {
         <div className="lg:col-span-2 space-y-6">
           <div>
             <h2 className="text-xl font-semibold mb-4">Active Goals</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {mockGoals.map((goal) => (
-                <GoalCard
-                  key={goal.id}
-                  {...goal}
-                  onEdit={() => console.log('Edit goal', goal.id)}
-                />
-              ))}
-            </div>
+            {activeGoals.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {activeGoals.map((goal) => (
+                  <GoalCard
+                    key={goal.id}
+                    id={goal.id}
+                    title={goal.title}
+                    description={goal.description}
+                    category={goal.category as any}
+                    priority={goal.priority as any}
+                    progress={goal.progress}
+                    deadline={new Date(goal.deadline)}
+                    onEdit={() => console.log('Edit goal', goal.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-8">
+                No active goals yet. Create your first goal to get started!
+              </p>
+            )}
           </div>
 
           <div>
             <h2 className="text-xl font-semibold mb-4">Today's Habits</h2>
-            <div className="space-y-3">
-              {mockHabits.map((habit) => (
-                <HabitItem
-                  key={habit.id}
-                  {...habit}
-                  onToggle={(checked) => console.log('Habit toggled:', habit.id, checked)}
-                />
-              ))}
-            </div>
+            {todayHabits.length > 0 ? (
+              <div className="space-y-3">
+                {todayHabits.map((habit) => (
+                  <HabitItem
+                    key={habit.id}
+                    id={habit.id}
+                    name={habit.name}
+                    streak={habit.currentStreak}
+                    completed={habit.completed}
+                    frequency={habit.frequency as any}
+                    onToggle={(checked) => {
+                      if (checked && !habit.completed) {
+                        habitCheckInMutation.mutate({ id: habit.id })
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-8">
+                No habits tracked yet. Start building good habits today!
+              </p>
+            )}
           </div>
         </div>
 
         <div className="space-y-6">
-          <UpcomingDeadlines deadlines={mockDeadlines} />
+          <UpcomingDeadlines deadlines={deadlines} />
           <MotivationalQuote />
         </div>
       </div>
