@@ -65,6 +65,7 @@ export interface IStorage {
   // Roadmap step operations
   createRoadmapStep(step: InsertRoadmapStep): Promise<RoadmapStep>;
   getRoadmapSteps(roadmapId: string): Promise<RoadmapStep[]>;
+  getRoadmapStep(id: string): Promise<RoadmapStep | undefined>;
   updateRoadmapStep(id: string, updates: Partial<InsertRoadmapStep>): Promise<RoadmapStep>;
   deleteRoadmapStep(id: string): Promise<void>;
 
@@ -314,6 +315,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.roadmapSteps.values())
       .filter(s => s.roadmapId === roadmapId)
       .sort((a, b) => a.orderIndex - b.orderIndex);
+  }
+
+  async getRoadmapStep(id: string): Promise<RoadmapStep | undefined> {
+    return this.roadmapSteps.get(id);
   }
 
   async updateRoadmapStep(id: string, updates: Partial<InsertRoadmapStep>): Promise<RoadmapStep> {
