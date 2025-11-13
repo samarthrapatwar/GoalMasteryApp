@@ -1,3 +1,5 @@
+import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
+import { db } from "./db";
 import {
   users,
   goals,
@@ -375,4 +377,241 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class PostgresStorage implements IStorage {
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          profileImageUrl: userData.profileImageUrl,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  async createGoal(goal: InsertGoal): Promise<Goal> {
+    const [created] = await db.insert(goals).values(goal).returning();
+    return created;
+  }
+
+  async getGoalsByUserId(userId: string): Promise<Goal[]> {
+    return await db
+      .select()
+      .from(goals)
+      .where(eq(goals.userId, userId))
+      .orderBy(desc(goals.createdAt));
+  }
+
+  async getGoal(id: string): Promise<Goal | undefined> {
+    const [goal] = await db.select().from(goals).where(eq(goals.id, id));
+    return goal;
+  }
+
+  async updateGoal(id: string, updates: Partial<InsertGoal>): Promise<Goal> {
+    const [updated] = await db
+      .update(goals)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(goals.id, id))
+      .returning();
+    if (!updated) throw new Error("Goal not found");
+    return updated;
+  }
+
+  async deleteGoal(id: string): Promise<void> {
+    await db.delete(goals).where(eq(goals.id, id));
+  }
+
+  async createHabit(habit: InsertHabit): Promise<Habit> {
+    const [created] = await db.insert(habits).values(habit).returning();
+    return created;
+  }
+
+  async getHabitsByUserId(userId: string): Promise<Habit[]> {
+    return await db
+      .select()
+      .from(habits)
+      .where(eq(habits.userId, userId))
+      .orderBy(desc(habits.createdAt));
+  }
+
+  async getHabit(id: string): Promise<Habit | undefined> {
+    const [habit] = await db.select().from(habits).where(eq(habits.id, id));
+    return habit;
+  }
+
+  async updateHabit(id: string, updates: Partial<Omit<Habit, 'id' | 'createdAt'>>): Promise<Habit> {
+    const [updated] = await db
+      .update(habits)
+      .set(updates)
+      .where(eq(habits.id, id))
+      .returning();
+    if (!updated) throw new Error("Habit not found");
+    return updated;
+  }
+
+  async deleteHabit(id: string): Promise<void> {
+    await db.delete(habits).where(eq(habits.id, id));
+  }
+
+  async createHabitCheckIn(checkIn: InsertHabitCheckIn): Promise<HabitCheckIn> {
+    const [created] = await db.insert(habitCheckIns).values(checkIn).returning();
+    return created;
+  }
+
+  async getHabitCheckIns(habitId: string, startDate?: string, endDate?: string): Promise<HabitCheckIn[]> {
+    let query = db.select().from(habitCheckIns).where(eq(habitCheckIns.habitId, habitId));
+    
+    if (startDate && endDate) {
+      const conditions = and(
+        eq(habitCheckIns.habitId, habitId),
+        gte(habitCheckIns.completedAt, startDate),
+        lte(habitCheckIns.completedAt, endDate)
+      );
+      return await db
+        .select()
+        .from(habitCheckIns)
+        .where(conditions)
+        .orderBy(desc(habitCheckIns.completedAt));
+    }
+    
+    return await query.orderBy(desc(habitCheckIns.completedAt));
+  }
+
+  async createRoutine(routine: InsertRoutine): Promise<Routine> {
+    const [created] = await db.insert(routines).values(routine).returning();
+    return created;
+  }
+
+  async getRoutinesByUserId(userId: string): Promise<Routine[]> {
+    return await db.select().from(routines).where(eq(routines.userId, userId));
+  }
+
+  async getRoutine(id: string): Promise<Routine | undefined> {
+    const [routine] = await db.select().from(routines).where(eq(routines.id, id));
+    return routine;
+  }
+
+  async updateRoutine(id: string, updates: Partial<InsertRoutine>): Promise<Routine> {
+    const [updated] = await db
+      .update(routines)
+      .set(updates)
+      .where(eq(routines.id, id))
+      .returning();
+    if (!updated) throw new Error("Routine not found");
+    return updated;
+  }
+
+  async deleteRoutine(id: string): Promise<void> {
+    await db.delete(routines).where(eq(routines.id, id));
+  }
+
+  async createRoadmap(roadmap: InsertRoadmap): Promise<Roadmap> {
+    const [created] = await db.insert(roadmaps).values(roadmap).returning();
+    return created;
+  }
+
+  async getRoadmapsByUserId(userId: string): Promise<Roadmap[]> {
+    return await db
+      .select()
+      .from(roadmaps)
+      .where(eq(roadmaps.userId, userId))
+      .orderBy(desc(roadmaps.createdAt));
+  }
+
+  async getRoadmap(id: string): Promise<Roadmap | undefined> {
+    const [roadmap] = await db.select().from(roadmaps).where(eq(roadmaps.id, id));
+    return roadmap;
+  }
+
+  async updateRoadmap(id: string, updates: Partial<InsertRoadmap>): Promise<Roadmap> {
+    const [updated] = await db
+      .update(roadmaps)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(roadmaps.id, id))
+      .returning();
+    if (!updated) throw new Error("Roadmap not found");
+    return updated;
+  }
+
+  async deleteRoadmap(id: string): Promise<void> {
+    await db.delete(roadmaps).where(eq(roadmaps.id, id));
+  }
+
+  async createRoadmapStep(step: InsertRoadmapStep): Promise<RoadmapStep> {
+    const [created] = await db.insert(roadmapSteps).values(step).returning();
+    return created;
+  }
+
+  async getRoadmapSteps(roadmapId: string): Promise<RoadmapStep[]> {
+    return await db
+      .select()
+      .from(roadmapSteps)
+      .where(eq(roadmapSteps.roadmapId, roadmapId))
+      .orderBy(asc(roadmapSteps.orderIndex));
+  }
+
+  async getRoadmapStep(id: string): Promise<RoadmapStep | undefined> {
+    const [step] = await db.select().from(roadmapSteps).where(eq(roadmapSteps.id, id));
+    return step;
+  }
+
+  async updateRoadmapStep(id: string, updates: Partial<InsertRoadmapStep>): Promise<RoadmapStep> {
+    const [updated] = await db
+      .update(roadmapSteps)
+      .set(updates)
+      .where(eq(roadmapSteps.id, id))
+      .returning();
+    if (!updated) throw new Error("Roadmap step not found");
+    return updated;
+  }
+
+  async deleteRoadmapStep(id: string): Promise<void> {
+    await db.delete(roadmapSteps).where(eq(roadmapSteps.id, id));
+  }
+
+  async createJournalEntry(entry: InsertJournalEntry): Promise<JournalEntry> {
+    const [created] = await db.insert(journalEntries).values(entry).returning();
+    return created;
+  }
+
+  async getJournalEntriesByUserId(userId: string): Promise<JournalEntry[]> {
+    return await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.userId, userId))
+      .orderBy(desc(journalEntries.entryDate));
+  }
+
+  async getJournalEntry(id: string): Promise<JournalEntry | undefined> {
+    const [entry] = await db.select().from(journalEntries).where(eq(journalEntries.id, id));
+    return entry;
+  }
+
+  async updateJournalEntry(id: string, updates: Partial<InsertJournalEntry>): Promise<JournalEntry> {
+    const [updated] = await db
+      .update(journalEntries)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(journalEntries.id, id))
+      .returning();
+    if (!updated) throw new Error("Journal entry not found");
+    return updated;
+  }
+
+  async deleteJournalEntry(id: string): Promise<void> {
+    await db.delete(journalEntries).where(eq(journalEntries.id, id));
+  }
+}
+
+export const storage = new PostgresStorage();
