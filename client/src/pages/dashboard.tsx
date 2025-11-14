@@ -6,6 +6,7 @@ import { UpcomingDeadlines } from "@/components/upcoming-deadlines"
 import { MotivationalQuote } from "@/components/motivational-quote"
 import { GoalCard } from "@/components/goal-card"
 import { HabitItem } from "@/components/habit-item"
+import { SEO } from "@/components/seo"
 import { Target, CheckSquare, Flame, TrendingUp } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { isUnauthorizedError } from "@/lib/authUtils"
@@ -86,13 +87,18 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold mb-2">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome back! Here's your progress overview.
-        </p>
-      </div>
+    <>
+      <SEO 
+        title="Dashboard" 
+        description="Track your goals, habits, and productivity progress with comprehensive analytics and insights."
+      />
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-semibold mb-2">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome back! Here's your progress overview.
+          </p>
+        </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
@@ -179,6 +185,7 @@ export default function Dashboard() {
           <MotivationalQuote />
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }

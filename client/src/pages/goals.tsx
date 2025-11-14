@@ -349,6 +349,7 @@ export default function Goals() {
           <GoalForm
             onSubmit={handleCreateGoal}
             onCancel={() => setShowForm(false)}
+            isPending={createGoalMutation.isPending}
           />
         </DialogContent>
       </Dialog>
@@ -361,8 +362,10 @@ export default function Goals() {
           </DialogHeader>
           {editingGoal && (
             <GoalForm
+              initialValues={editingGoal}
               onSubmit={handleEditGoal}
               onCancel={() => setEditingGoal(null)}
+              isPending={updateGoalMutation.isPending}
             />
           )}
         </DialogContent>

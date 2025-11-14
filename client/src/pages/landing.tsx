@@ -1,11 +1,18 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Target, CheckSquare, Map, BookOpen, BarChart3, Calendar, Sparkles } from "lucide-react"
+import { SEO } from "@/components/seo"
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted">
-      <div className="max-w-6xl mx-auto px-6 py-12">
+    <>
+      <SEO 
+        title="Personal Goal Mastery" 
+        description="Your all-in-one productivity companion for tracking goals, building habits, planning routines, and mastering your personal development journey."
+        keywords="goal tracking, habit tracker, productivity app, personal development, time management, routine planner, learning roadmap, journal"
+      />
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted">
+        <div className="max-w-6xl mx-auto px-6 py-12">
         {/* Hero Section */}
         <div className="text-center mb-16">
           <div className="flex items-center justify-center gap-2 mb-6">
@@ -111,6 +118,7 @@ export default function Landing() {
           </Card>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
